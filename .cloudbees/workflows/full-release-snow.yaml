@@ -309,7 +309,7 @@ jobs:
   approval:
     needs:
       - update-jira-tickets
-    timeout-minutes: 4320
+    timeout-minutes: 60
     with:
       instructions: ""
       disallowLaunchByUser: false
@@ -641,7 +641,7 @@ jobs:
   release-manager-approval:
     needs:
       - exit-criteria-qa
-    timeout-minutes: 4320
+    timeout-minutes: 60
     delegates: cloudbees-io/manual-approval/custom-job.yml@v1
     with:
       instructions: ""
