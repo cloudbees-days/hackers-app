@@ -13,7 +13,7 @@ metadata:
     - name: DEV
       jobs:
         - hackers-staging
-        - Trigger-Jenkins-Pipeline
+        - Build
     - name: QA
       jobs:
         - hackers-prod
@@ -28,7 +28,7 @@ jobs:
       manifest: ${{ inputs.manifest }}
       environment: ${{ job.environment }}
   hackers-prod:
-    needs: Trigger-Jenkins-Pipeline
+    needs: Build
     environment: hackers-prod
     uses: ./.cloudbees/workflows/deployer.yaml
     with:
@@ -41,7 +41,7 @@ jobs:
     with:
       manifest: ${{ inputs.manifest }}
       environment: ${{ job.environment }}
-  Trigger-Jenkins-Pipeline:
+  Build:
     needs:
       - hackers-staging
     steps:
@@ -96,4 +96,4 @@ jobs:
             -   **Notification Sent:** Slack #dev-releases channel\
             -   **Deployment Status:** SUCCESS
         uses: cloudbees-io/publish-evidence-item@v1
-        name: Build
+        name: Call Jenkins
