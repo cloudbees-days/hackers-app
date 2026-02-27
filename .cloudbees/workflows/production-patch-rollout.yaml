@@ -1,0 +1,99 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: Production Patch Rollout
+on:
+  workflow_dispatch:
+    inputs:
+      manifest:
+        type: string
+        required: true
+        description: This is a system-generated parameter and is required for use in application releases. Refer to https://docs.cloudbees.com/docs/cloudbees-platform/latest/applications/releases#manifest for the expected format
+metadata:
+  stages/v1alpha1:
+    - name: DEV
+      jobs:
+        - hackers-staging
+        - Trigger-Jenkins-Pipeline
+    - name: QA
+      jobs:
+        - hackers-prod
+    - name: PROD
+      jobs:
+        - hackers-qa
+jobs:
+  hackers-staging:
+    environment: hackers-staging
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: ${{ job.environment }}
+  hackers-prod:
+    needs: Trigger-Jenkins-Pipeline
+    environment: hackers-prod
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: ${{ job.environment }}
+  hackers-qa:
+    needs: hackers-prod
+    environment: hackers-qa
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: ${{ job.environment }}
+  Trigger-Jenkins-Pipeline:
+    needs:
+      - hackers-staging
+    steps:
+      - with:
+          content: |
+            # CloudBees Unify - Patch Rollout Evidence Report (Mock)
+
+            ## Release Metadata
+
+            -   **Application:** Payments-Service\
+            -   **Patch Version:** v2.3.1-hotfix\
+            -   **Release ID:** REL-2026-02-27-001\
+            -   **Triggered By:** Git Commit (hotfix/critical-fix)\
+            -   **Commit SHA:** a8f5f167f44f4964e6c998dee827110c\
+            -   **Jira Ticket:** PAY-4821\
+            -   **ServiceNow Change Record:** CHG0093842\
+            -   **Report Generated:** 2026-02-27 20:57:36
+
+            ------------------------------------------------------------------------
+
+            ## Stage 1: Build Evidence
+
+            -   **Jenkins Pipeline Triggered:** YES\
+            -   **Jenkins Job Name:** payments-service-build\
+            -   **Jenkins Build Number:** #1845\
+            -   **Jenkins URL:**
+                https://jenkins.company.com/job/payments-service-build/1845\
+            -   **Build Trigger Source:** Webhook from GitHub (hotfix branch)\
+            -   **Agent Used:** k8s-ephemeral-agent-v3.2\
+            -   **Build Duration:** 6m 42s\
+            -   **Artifact Produced:** payments-service-2.3.1-hotfix.jar\
+            -   **Artifact SHA256:** 3ac674216f3e15c761ee1a5e255f067953623c8b\
+            -   **Artifact Repository:** Artifactory (libs-release-local)\
+            -   **SBOM Generated:** YES (CycloneDX format)\
+            -   **Build Status:** SUCCESS
+
+            ------------------------------------------------------------------------
+
+            ## Stage 2: Dev Environment Deployment Evidence
+
+            -   **Deployment Target:** dev-cluster-us-east-1\
+            -   **Deployment Strategy:** Rolling Update\
+            -   **Deployment Start Time:** 2026-02-27 10:14:23\
+            -   **Deployment End Time:** 2026-02-27 10:16:02\
+            -   **Environment Approval Required:** NO (auto-approved per policy)\
+            -   **Deployment Executed By:** Unify Release Orchestration Workflow\
+            -   **Artifact Promoted Without Rebuild:** YES\
+            -   **Health Check Endpoint:** /health\
+            -   **Health Check Result:** PASS (200 OK)\
+            -   **Post-Deployment Smoke Tests:** PASS (5/5 tests successful)\
+            -   **Audit Log ID:** AUD-DEV-009128\
+            -   **Notification Sent:** Slack #dev-releases channel\
+            -   **Deployment Status:** SUCCESS
+        uses: cloudbees-io/publish-evidence-item@v1
+        name: Build
