@@ -15,12 +15,12 @@ metadata:
         - Build
     - name: QA
       jobs:
-        - hackers-qa
         - Evidence
         - QA_Approval
     - name: PROD
       jobs:
         - hackers-prod
+        - Deploy
 jobs:
   Build:
     steps:
@@ -82,14 +82,8 @@ jobs:
     with:
       manifest: ${{ inputs.manifest }}
       environment: hackers-prod
-  hackers-qa:
-    needs: Build
-    uses: ./.cloudbees/workflows/deployer.yaml
-    with:
-      manifest: ${{ inputs.manifest }}
-      environment: hackers-qa
   Evidence:
-    needs: hackers-qa
+    needs: Build
     steps:
       - with:
           content: |
@@ -174,8 +168,7 @@ jobs:
         uses: cloudbees-io/publish-evidence-item@v1
         name: Gather Evidence
   QA_Approval:
-    needs:
-      - Evidence
+    needs: Evidence
     timeout-minutes: 4320
     delegates: cloudbees-io/manual-approval/custom-job.yml@v1
     with:
@@ -183,3 +176,107 @@ jobs:
       disallowLaunchByUser: false
       notifyAllEligibleUsers: false
       approvers: 3ad0577a-e80d-11ea-a794-42010a83ae1a
+  Deploy:
+    needs:
+      - hackers-prod
+    steps:
+      - with:
+          content: |
+            # CloudBees Unify - Patch Rollout Evidence Report (Mock)
+
+            ## Stage 4: Production Approval & Deployment Evidence
+
+            ### Release Context
+
+            -   **Application:** Payments-Service\
+            -   **Patch Version:** v2.3.1-hotfix\
+            -   **Release ID:** REL-2026-02-27-001\
+            -   **Artifact Deployed:** payments-service-2.3.1-hotfix.jar\
+            -   **Artifact SHA256:** 3ac674216f3e15c761ee1a5e255f067953623c8b\
+            -   **Artifact Promoted Without Rebuild:** YES\
+            -   **Promotion Source:** QA Environment\
+            -   **Production Environment:** prod-cluster-us-east-1\
+            -   **Report Generated:** 2026-02-27 21:42:03
+
+            ------------------------------------------------------------------------
+
+            ## Production Approval Gate Evidence
+
+            -   **Approval Required:** YES\
+            -   **Approval Type:** Change Advisory Board (CAB)\
+            -   **ServiceNow Change Record:** CHG0093842 (State: IMPLEMENT)\
+            -   **Jira Ticket Status:** PAY-4821 (Approved for Production)\
+            -   **Security Sign-Off:** COMPLETED\
+            -   **Separation of Duties Enforced:** YES\
+            -   **Approvers:**
+                -   Laura Chen (CAB Chair)\
+                -   David Romero (Security Officer)\
+                -   Michael Tran (Release Manager)\
+            -   **Approval Timestamp:** 2026-02-27 15:10:44\
+            -   **Policy Checks Evaluated:**
+                -   No open Critical/High vulnerabilities\
+                -   QA test pass rate ≥ 95%\
+                -   Artifact fingerprint match confirmed\
+                -   Change freeze validation passed
+
+            ------------------------------------------------------------------------
+
+            ## Production Deployment Execution Evidence
+
+            -   **Deployment Strategy:** Canary (10% → 50% → 100%)\
+            -   **Feature Flag Used:** payments_hotfix_toggle (default: OFF →
+                progressive enablement)\
+            -   **Deployment Start Time:** 2026-02-27 15:15:02\
+            -   **Deployment Completion Time:** 2026-02-27 15:32:47\
+            -   **Executed By:** Unify Release Orchestration Workflow\
+            -   **Kubernetes Rollout Status:** SUCCESS\
+            -   **Pods Updated:** 24/24\
+            -   **Zero Downtime Achieved:** YES
+
+            ------------------------------------------------------------------------
+
+            ## Progressive Rollout & Monitoring Evidence
+
+            -   **10% Canary Duration:** 5 minutes\
+            -   **50% Rollout Duration:** 7 minutes\
+            -   **100% Rollout Confirmation:** Stable\
+            -   **Health Checks:** PASS (All instances reporting healthy)\
+            -   **Error Rate Threshold Breach:** NO\
+            -   **Latency Impact:** Within SLA (P95 \< 220ms)\
+            -   **Automated Rollback Triggered:** NO
+
+            ------------------------------------------------------------------------
+
+            ## Post-Deployment Validation
+
+            -   **Synthetic Monitoring Tests:** PASS\
+            -   **Real-Time Metrics Monitored:**
+                -   Error Rate\
+                -   Throughput\
+                -   Latency\
+                -   CPU/Memory Utilization\
+            -   **Incidents Created:** NONE\
+            -   **Customer Impact Reported:** NONE
+
+            ------------------------------------------------------------------------
+
+            ## Audit & Compliance Evidence
+
+            -   **Audit Log ID:** AUD-PROD-010442\
+            -   **Full Approval History Captured:** YES\
+            -   **Deployment Logs Archived:** YES\
+            -   **Security Scan Reports Archived:** YES\
+            -   **Feature Flag History Recorded:** YES\
+            -   **Evidence Export Available:** YES (PDF / API / Dashboard View)
+
+            ------------------------------------------------------------------------
+
+            ## Production Stage Outcome
+
+            -   **Production Status:** SUCCESSFULLY DEPLOYED\
+            -   **Rollback Plan Verified:** YES (Instant toggle + prior replica set
+                preserved)\
+            -   **Release Closed In ITSM:** YES\
+            -   **DORA Metrics Updated:** YES
+        uses: cloudbees-io/publish-evidence-item@v1
+        name: Evidence
