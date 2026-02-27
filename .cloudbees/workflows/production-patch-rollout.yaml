@@ -12,38 +12,17 @@ metadata:
   stages/v1alpha1:
     - name: DEV
       jobs:
-        - hackers-staging
         - Build
     - name: QA
       jobs:
-        - hackers-prod
+        - hackers-qa
+        - Evidence
+        - QA_Approval
     - name: PROD
       jobs:
-        - hackers-qa
+        - hackers-prod
 jobs:
-  hackers-staging:
-    environment: hackers-staging
-    uses: ./.cloudbees/workflows/deployer.yaml
-    with:
-      manifest: ${{ inputs.manifest }}
-      environment: ${{ job.environment }}
-  hackers-prod:
-    needs: Build
-    environment: hackers-prod
-    uses: ./.cloudbees/workflows/deployer.yaml
-    with:
-      manifest: ${{ inputs.manifest }}
-      environment: ${{ job.environment }}
-  hackers-qa:
-    needs: hackers-prod
-    environment: hackers-qa
-    uses: ./.cloudbees/workflows/deployer.yaml
-    with:
-      manifest: ${{ inputs.manifest }}
-      environment: ${{ job.environment }}
   Build:
-    needs:
-      - hackers-staging
     steps:
       - with:
           content: |
@@ -97,3 +76,110 @@ jobs:
             -   **Deployment Status:** SUCCESS
         uses: cloudbees-io/publish-evidence-item@v1
         name: Call Jenkins
+  hackers-prod:
+    needs: QA_Approval
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: hackers-prod
+  hackers-qa:
+    needs: Build
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: hackers-qa
+  Evidence:
+    needs: hackers-qa
+    steps:
+      - with:
+          content: |
+            # CloudBees Unify - Patch Rollout Evidence Report (Mock)
+
+            ## Stage 3: QA Environment Promotion & Validation Evidence
+
+            ### Release Context
+
+            -   **Application:** Payments-Service\
+            -   **Patch Version:** v2.3.1-hotfix\
+            -   **Release ID:** REL-2026-02-27-001\
+            -   **Artifact Promoted:** payments-service-2.3.1-hotfix.jar\
+            -   **Artifact SHA256:** 3ac674216f3e15c761ee1a5e255f067953623c8b\
+            -   **Promoted Without Rebuild:** YES\
+            -   **Promotion Source:** Dev Environment\
+            -   **Promotion Target:** QA Environment\
+            -   **Report Generated:** 2026-02-27 21:05:54
+
+            ------------------------------------------------------------------------
+
+            ## QA Approval Gate Evidence
+
+            -   **Approval Required:** YES\
+            -   **Approval Type:** Manual (Release Manager + QA Lead)\
+            -   **ServiceNow Change Validation:** CHG0093842 in APPROVED state\
+            -   **Jira Ticket Validation:** PAY-4821 in Ready for QA state\
+            -   **Separation of Duties Enforced:** YES\
+            -   **Approvers:**
+                -   Jane Smith (QA Lead)\
+                -   Michael Tran (Release Manager)\
+            -   **Approval Timestamp:** 2026-02-27 12:42:11\
+            -   **Policy Checks Evaluated:**
+                -   Security Scan Thresholds (No Critical/High findings)\
+                -   Test Pass Rate ≥ 95%\
+                -   Artifact Fingerprint Match Verified
+
+            ------------------------------------------------------------------------
+
+            ## QA Deployment Execution Evidence
+
+            -   **Deployment Target:** qa-cluster-us-east-1\
+            -   **Deployment Strategy:** Blue/Green\
+            -   **Deployment Start Time:** 2026-02-27 12:45:03\
+            -   **Deployment End Time:** 2026-02-27 12:48:19\
+            -   **Executed By:** Unify Release Orchestration Workflow\
+            -   **Deployment Status:** SUCCESS
+
+            ------------------------------------------------------------------------
+
+            ## QA Validation Results
+
+            -   **Automated Regression Suite:** PASS (128/128 tests)\
+            -   **Integration Tests:** PASS (42/42 tests)\
+            -   **Performance Smoke Test:** PASS (P95 latency within SLA)\
+            -   **Security Re-Validation Scan:** PASS\
+            -   **Defects Identified:** 0 Critical / 0 High / 1 Medium (documented)\
+            -   **Defect Linked in Jira:** PAY-4833 (Medium severity cosmetic issue)
+
+            ------------------------------------------------------------------------
+
+            ## Audit & Traceability Evidence
+
+            -   **Audit Log ID:** AUD-QA-009874\
+            -   **Artifact Fingerprint Verified Across Environments:** YES\
+            -   **Evidence Captured:**
+                -   Test Reports (JUnit XML)\
+                -   Security Scan Report (SAST/SCA)\
+                -   Deployment Logs\
+                -   Approval Records\
+            -   **Notifications Sent:**
+                -   Slack #qa-releases\
+                -   Email to release distribution list
+
+            ------------------------------------------------------------------------
+
+            ## QA Stage Outcome
+
+            -   **QA Sign-Off Status:** APPROVED FOR PRODUCTION PROMOTION\
+            -   **Rollback Plan Verified:** YES\
+            -   **Next Stage:** Production Approval Gate
+        uses: cloudbees-io/publish-evidence-item@v1
+        name: Gather Evidence
+  QA_Approval:
+    needs:
+      - Evidence
+    timeout-minutes: 4320
+    delegates: cloudbees-io/manual-approval/custom-job.yml@v1
+    with:
+      instructions: Check Evidence and Approve
+      disallowLaunchByUser: false
+      notifyAllEligibleUsers: false
+      approvers: 3ad0577a-e80d-11ea-a794-42010a83ae1a
