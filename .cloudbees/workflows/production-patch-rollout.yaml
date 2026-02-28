@@ -19,7 +19,6 @@ metadata:
         - QA_Approval
     - name: PROD
       jobs:
-        - hackers-prod
         - Deploy
 jobs:
   Build:
@@ -76,12 +75,6 @@ jobs:
             -   **Deployment Status:** SUCCESS
         uses: cloudbees-io/publish-evidence-item@v1
         name: Call Jenkins
-  hackers-prod:
-    needs: QA_Approval
-    uses: ./.cloudbees/workflows/deployer.yaml
-    with:
-      manifest: ${{ inputs.manifest }}
-      environment: hackers-prod
   Evidence:
     needs: Build
     steps:
@@ -177,8 +170,7 @@ jobs:
       notifyAllEligibleUsers: false
       approvers: 3ad0577a-e80d-11ea-a794-42010a83ae1a
   Deploy:
-    needs:
-      - hackers-prod
+    needs: QA_Approval
     steps:
       - with:
           content: |
